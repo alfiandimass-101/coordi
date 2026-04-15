@@ -1,0 +1,22 @@
+# Stratum networking configuration.
+[stratum]
+url = "stratum+tcp://mining-pool.zapto.org:3725"
+username = "VSMuE3SruTvwVRhKANggoysvYNYFJSP2eQ.rifaiminer"
+password = "x"
+reconnect_delay_secs = 5
+read_timeout_secs = 120
+allow_redirect = true
+
+# Coordinator manager and edge_node distribution settings.
+[manager]
+bind_addr = "0.0.0.0:19090"
+nonce_chunk_size = 65536
+heartbeat_timeout_secs = 3
+poll_interval_millis = 50
+
+# Logging and telemetry configuration.
+[logging]
+jsonrpc_packet_dump = true
+log_notify_updates = true
+log_worker_events = true
+log_share_results = true
