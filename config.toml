@@ -1,9 +1,9 @@
 # Stratum networking configuration.
 [stratum]
-url = "stratum+tcp://mining-pool.zapto.org:3725"
+url = "stratum+tcp://mine.pool.r4nd0m.us:7247"
 username = "VSMuE3SruTvwVRhKANggoysvYNYFJSP2eQ.rifaiminer"
-password = "x"
-reconnect_delay_secs = 5
+password = "c=VECO,mc=VECO"
+reconnect_delay_secs = 3
 read_timeout_secs = 120
 allow_redirect = true
 
@@ -11,12 +11,28 @@ allow_redirect = true
 [manager]
 bind_addr = "0.0.0.0:19090"
 nonce_chunk_size = 65536
-heartbeat_timeout_secs = 3
+heartbeat_timeout_secs = 30
+
+# Runtime policy distributed to edge_nodes on registration.
+[edge_node]
+reconnect_delay_secs = 3
 poll_interval_millis = 50
+
+[edge_node.mining]
+yespower_n = 2048
+yespower_r = 32
+yespower_version = "v1_0"
+search_window_size = 4096
+# personalization = "optional-string"
+
+[edge_node.logging]
+log_poll_cycles = false
+log_nonce_found = false
+log_share_results = false
 
 # Logging and telemetry configuration.
 [logging]
-jsonrpc_packet_dump = true
-log_notify_updates = true
-log_worker_events = true
-log_share_results = true
+jsonrpc_packet_dump = false
+log_notify_updates = false
+log_worker_events = false
+log_share_results = false
