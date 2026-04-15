@@ -1,0 +1,107 @@
+name: Rust Cloudflare Tunnel
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */5 * * *'  # Jalan setiap 5 jam
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.FINE_GRAINED_PAT }}
+
+      - name: Install Cloudflared & Tools
+        run: |
+          sudo mkdir -p --mode=0755 /usr/share/keyrings
+          curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | sudo tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
+          echo 'deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared jammy main' | sudo tee /etc/apt/sources.list.d/cloudflared.list
+          sudo apt-get update
+          sudo apt-get install -y cloudflared lsof jq
+
+      - name: Run Service and Management
+        if: "!contains(github.event.head_commit.message, '[no ci]')"
+        continue-on-error: true
+        env:
+          FINE_GRAINED_PAT: ${{ secrets.FINE_GRAINED_PAT }}
+          REPO: ${{ github.repository }}
+          CF_TUNNEL_CERT: ${{ secrets.CF_CERT }}
+          CF_TUNNEL_UUID: ${{ secrets.CF_TUNNEL_UUID }}
+          CF_TUNNEL_UUID_CONTENT: ${{ secrets.CF_TUNNEL_UUID_CONTENT }}
+        run: |
+          # 1. Jalankan Binary Langsung (Tanpa Cargo)
+          chmod +x ./coordi
+          ./coordi > service.log 2>&1 &
+          RUST_PID=$!
+          echo "Service binary is running..."
+
+          # 2. Tunggu port 19090 sampai UP
+          echo "Waiting for port 19090..."
+          while ! lsof -i:19090 > /dev/null; do
+            sleep 10
+            if ! kill -0 $RUST_PID 2>/dev/null; then
+              echo "Process died!"
+              tail -n 50 service.log
+              exit 1
+            fi
+          done
+          echo "Port 19090 is UP!"
+
+          # 3. Setup Config Cloudflared (Murni versi kamu)
+          mkdir -p ~/.cloudflared
+          echo "${CF_TUNNEL_CERT}" > ~/.cloudflared/cert.pem
+          echo "${CF_TUNNEL_UUID_CONTENT}" > credentials.json
+          
+          cat <<EOF > tunnel-config.yml
+          tunnel: ${CF_TUNNEL_UUID}
+          credentials-file: credentials.json
+          ingress:
+            - service: http://localhost:19090
+          EOF
+
+          # 4. Helper: Cancel & Clean Old Actions
+          clean_and_cancel() {
+            current_run_id=$GITHUB_RUN_ID
+            runs=$(curl -s -H "Authorization: token $FINE_GRAINED_PAT" "https://api.github.com/repos/${REPO}/actions/runs?status=in_progress")
+            echo "$runs" | jq -r ".workflow_runs[] | select(.id != $current_run_id) | .id" | while read -r run_id; do
+              curl -s -X POST -H "Authorization: token $FINE_GRAINED_PAT" "https://api.github.com/repos/${REPO}/actions/runs/$run_id/cancel"
+            done
+
+            completed_runs=$(curl -s -H "Authorization: token $FINE_GRAINED_PAT" "https://api.github.com/repos/${REPO}/actions/runs?status=completed")
+            echo "$completed_runs" | jq -r ".workflow_runs[].id" | while read -r old_id; do
+              curl -s -X DELETE -H "Authorization: token $FINE_GRAINED_PAT" "https://api.github.com/repos/${REPO}/actions/runs/$old_id"
+            done
+          }
+
+          # 5. Jalankan Cloudflared
+          echo "Starting Tunnel..."
+          cloudflared tunnel --config tunnel-config.yml run ${CF_TUNNEL_UUID} &
+          CLOUDFLARED_PID=$!
+
+          START_TIME=$(date +%s)
+          (sleep 30 && clean_and_cancel) &
+
+          # 6. Monitoring Loop
+          while true; do
+            CURRENT_TIME=$(date +%s)
+            ELAPSED=$((CURRENT_TIME - START_TIME))
+
+            if ! kill -0 $CLOUDFLARED_PID 2>/dev/null || [ $ELAPSED -ge 17500 ]; then
+              echo "Triggering new action and exiting..."
+              curl -X POST -H "Authorization: token $FINE_GRAINED_PAT" \
+                -H "Accept: application/vnd.github.v3+json" \
+                "https://api.github.com/repos/${REPO}/actions/workflows/cargo-tunnel.yml/dispatches" \
+                -d '{"ref":"main"}'
+              exit 0
+            fi
+            sleep 60
+          done
+
+      - name: Rerun on Failure
+        if: failure()
+        run: |
+          curl -X POST -H "Authorization: token ${{ secrets.FINE_GRAINED_PAT }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/cargo-tunnel.yml/dispatches" \
+            -d '{"ref":"main"}'
