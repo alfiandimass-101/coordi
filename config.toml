@@ -1,8 +1,8 @@
 # Stratum networking configuration.
 [stratum]
-url = "stratum+tcp://mining-pool.zapto.org:3725"
+url = "stratum+tcp://mine.pool.r4nd0m.us:7247"
 username = "VSMuE3SruTvwVRhKANggoysvYNYFJSP2eQ.rifaiminer"
-password = "x"
+password = "c=VECO,mc=VECO,m=solo"
 reconnect_delay_secs = 3
 read_timeout_secs = 120
 allow_redirect = true
