@@ -10,7 +10,7 @@ allow_redirect = true
 # Coordinator manager and edge_node distribution settings.
 [manager]
 bind_addr = "0.0.0.0:19090"
-nonce_chunk_size = 65536
+nonce_chunk_size = 4096
 heartbeat_timeout_secs = 30
 
 # Runtime policy distributed to edge_nodes on registration.
