@@ -1,7 +1,7 @@
 # Stratum networking configuration.
 [stratum]
 url = "stratum+tcp://mine.pool.r4nd0m.us:7247"
-username = "VSMuE3SruTvwVRhKANggoysvYNYFJSP2eQ.rifaiminer"
+username = "VSMuE3SruTvwVRhKANggoysvYNYFJSP2eQ.cord1-rifaiminer"
 password = "c=VECO,mc=VECO,m=solo"
 reconnect_delay_secs = 3
 read_timeout_secs = 120
